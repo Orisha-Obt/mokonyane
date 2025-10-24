@@ -25,7 +25,7 @@ function Navbar() {
     },
   ];
   return (
-    <div className="w-full bg-slate-500 p-2 h-16">
+    <div className="w-full bg-slate-500 p-4 h-16">
       <div className="flex justify-between items-center">
         <div>
           <Link to="/" className="font-bold">
