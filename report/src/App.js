@@ -4,6 +4,8 @@ import Report from "./pages/Report";
 import Header from "./components/Header";
 import Navbar from "./components/Navbar";
 import Statistics from "./pages/Statistics";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
 
 function App() {
   return (
@@ -14,6 +16,8 @@ function App() {
         <Route exact path="/" element={<Home />} />
         <Route path="/report" element={<Report />} />
         <Route path="/stats" element={<Statistics />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contacts" element={<Contact />} />
       </Routes>
     </Router>
   );
