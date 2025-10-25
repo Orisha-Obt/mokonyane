@@ -3,7 +3,7 @@ import React from "react";
 function Hero() {
   return (
     <section className="p-4">
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-4 items-stretch">
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-col gap-4 items-stretch">
         {/* Layer 1: phishing stats */}
         <article className="flex-1 min-h-screen md:min-h-screen bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-lg p-8 shadow-sm overflow-auto">
           <header className="mb-4">

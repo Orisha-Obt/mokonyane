@@ -5,19 +5,21 @@ import tldextract
 import re
 from collections import Counter
 
-def get_url_values(x):
-    """Extract URL values from DataFrame or array"""
-    if isinstance(x, pd.DataFrame):
-        return x['url'].values
-    return np.array(x)
-
 COMMON_TLDS = [
     "com", "net", "org", "info", "co", "ru", "cn", "xyz", "top", "io", "biz",
     "us", "uk", "de", "jp", "in", "gov", "edu"
 ]
 
+def get_url_values(x):
+    """Extract URL values from DataFrame"""
+    if isinstance(x, pd.DataFrame):
+        return x['url'].values
+    return np.array(x)
+
 def numeric_features(urls):
-    """Returns numeric/domain/TLD features for an iterable of url strings."""
+    """
+    Returns numeric/domain/TLD features for an iterable of url strings.
+    """
     out = []
     for u in urls:
         s = str(u)
@@ -57,7 +59,8 @@ def numeric_features(urls):
 
         # TLD one-hot vector
         tld_vec = [1 if tld == t else 0 for t in COMMON_TLDS]
-        tld_vec.append(0 if tld in COMMON_TLDS else 1)
+        tld_other = 0 if tld in COMMON_TLDS else 1
+        tld_vec.append(tld_other)
 
         row = [
             length, digits, dots, hyphens, at, has_ip, has_https,
@@ -68,3 +71,10 @@ def numeric_features(urls):
         out.append(row)
 
     return np.array(out)
+
+# Names for numeric features (useful for interpreting coefficients)
+NUMERIC_FEATURE_NAMES = [
+    "length", "digits", "dots", "hyphens", "at_sign", "has_ip", "has_https",
+    "domain_length", "hostname_length", "num_subdomains", "hostname_entropy",
+    "suspicious_tokens", "chunks"
+] + [f"tld_{t}" for t in COMMON_TLDS] + ["tld_other"]

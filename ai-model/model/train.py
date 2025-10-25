@@ -1,16 +1,11 @@
-# ...existing code...
 import json
 import os
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
-from collections import Counter
-import re
 
 import joblib
 import numpy as np
 import pandas as pd
-import tldextract
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
@@ -19,8 +14,15 @@ from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.preprocessing import MinMaxScaler
 
-# ---------- Config ----------
+# Add project root to path
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Import from shared utils
+from model.utils import get_url_values, numeric_features, NUMERIC_FEATURE_NAMES, COMMON_TLDS
+
+# ---------- Config ----------
 CSV_FILE = ROOT / "data" / "urls_and_labels.csv"
 MODEL_FILE = Path(__file__).resolve().parent / "url_pipeline.joblib"
 RANDOM_STATE = 42
@@ -35,84 +37,11 @@ df = pd.read_csv(CSV_FILE)
 df = df.dropna(subset=['url', 'label'])
 df['label'] = df['label'].astype(int)
 
-# Predefine common TLDs for one-hot/frequency-like encoding
-COMMON_TLDS = [
-    "com", "net", "org", "info", "co", "ru", "cn", "xyz", "top", "io", "biz",
-    "us", "uk", "de", "jp", "in", "gov", "edu"
-]
-
-def numeric_features(urls):
-    """
-    Returns numeric/domain/TLD features for an iterable of url strings.
-    """
-    out = []
-    for u in urls:
-        s = str(u)
-        lower = s.lower()
-        length = len(s)
-        digits = sum(c.isdigit() for c in s)
-        dots = s.count('.')
-        hyphens = s.count('-')
-        at = s.count('@')
-        has_ip = int(bool(re.search(r'\b\d{1,3}(?:\.\d{1,3}){3}\b', s)))
-        has_https = int(lower.startswith('https'))
-
-        # Domain parsing
-        parsed = urlparse(s)
-        ext = tldextract.extract(s)
-        domain = ext.domain or (parsed.hostname or "")
-        tld = ext.suffix or ""
-        subdomain = ext.subdomain or ""
-        hostname = ".".join([p for p in [subdomain, domain, tld] if p])
-
-        domain_length = len(domain)
-        hostname_length = len(hostname)
-        num_subdomains = subdomain.count('.') + (1 if subdomain else 0)
-
-        # entropy
-        entropy = 0.0
-        if hostname:
-            probs = np.array(list(Counter(hostname).values())) / len(hostname)
-            entropy = -(probs * np.log2(probs)).sum()
-
-        suspicious_tokens = sum(1 for t in [
-            'login','secure','account','verify','bank','confirm','signin',
-            'admin','paypal','ebay','invoice'
-        ] if t in lower)
-
-        chunks = len([c for c in re.split(r'[^a-zA-Z0-9]+', s) if c])
-
-        # TLD one-hot vector
-        tld_vec = [1 if tld == t else 0 for t in COMMON_TLDS]
-        tld_other = 0 if tld in COMMON_TLDS else 1
-        tld_vec.append(tld_other)
-
-        row = [
-            length, digits, dots, hyphens, at, has_ip, has_https,
-            domain_length, hostname_length, num_subdomains, entropy,
-            suspicious_tokens, chunks
-        ] + tld_vec
-
-        out.append(row)
-
-    return np.array(out)
-
-# Names for numeric features (useful for interpreting coefficients)
-NUMERIC_FEATURE_NAMES = [
-    "length", "digits", "dots", "hyphens", "at_sign", "has_ip", "has_https",
-    "domain_length", "hostname_length", "num_subdomains", "hostname_entropy",
-    "suspicious_tokens", "chunks"
-] + [f"tld_{t}" for t in COMMON_TLDS] + ["tld_other"]
-
 # Wrappers to be used in FeatureUnion
 num_feat = FunctionTransformer(func=numeric_features, validate=False)
 
 # Character n-gram TF-IDF
 char_vec = TfidfVectorizer(analyzer='char_wb', ngram_range=(3,5), max_features=20000)
-
-def get_url_values(x):
-    """Extract URL values from DataFrame"""
-    return x['url'].values
 
 # Replace lambda functions with named functions in FeatureUnion
 union = FeatureUnion([
