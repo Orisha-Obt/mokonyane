@@ -3,14 +3,8 @@
   "name": "URL Viewer + Site Blocker",
   "version": "1.0",
   "description": "Shows active tab URL and blocks selected sites.",
-  "permissions": [
-    "tabs",
-    "webNavigation",
-    "storage"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "permissions": ["tabs", "webNavigation", "storage"],
+  "host_permissions": ["http://127.0.0.1:8000/*"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "View URL"
