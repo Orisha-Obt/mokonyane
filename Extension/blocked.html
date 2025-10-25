@@ -1,15 +1,177 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Blocked</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Blocked — Site Blocked</title>
     <style>
-      body { font-family: sans-serif; text-align: center; margin-top: 10%; }
-      h1 { color: #c00; }
+      :root{
+        --bg:#fbfbfd;
+        --card:#fff;
+        --accent:#c72b2b;
+        --muted:#6b7280;
+        --max:900px;
+      }
+      html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+      body{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#f6f8ff, #fbfbfd);padding:24px;}
+      .container{width:100%;max-width:var(--max);background:var(--card);box-shadow:0 6px 30px rgba(16,24,40,0.08);border-radius:12px;padding:28px;box-sizing:border-box;}
+      .head{display:flex;gap:18px;align-items:center;}
+      .icon{width:64px;height:64px;border-radius:12px;background:linear-gradient(180deg,#ffecec,#fff1f1);display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--accent);box-shadow:inset 0 -2px 0 rgba(0,0,0,0.03);}
+      h1{margin:0;font-size:20px;}
+      p.lead{margin:6px 0 0;color:var(--muted);font-size:14px;}
+      .card{margin-top:18px;padding:18px;border-radius:10px;background:linear-gradient(180deg,#fff,#fbfbff);border:1px solid rgba(16,24,40,0.04);}
+      .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+      .label{font-weight:600;color:var(--accent);background:rgba(199,43,43,0.06);padding:6px 10px;border-radius:8px;font-size:13px;}
+      .meta{color:var(--muted);font-size:13px;}
+      .url{word-break:break-all;background:#0f1724; color:#fff;padding:10px;border-radius:8px;margin-top:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;}
+      .reason{margin:12px 0;color:var(--muted);font-size:14px;line-height:1.45;}
+      .actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
+      button, a.button{border:0;padding:10px 14px;border-radius:8px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;}
+      .btn-back{background:#eef2ff;color:#1f2937;}
+      .btn-open{background:#fff5f5;border:1px solid rgba(199,43,43,0.12);color:var(--accent);}
+      .btn-report{background:#111827;color:#fff;}
+      .hint{margin-top:14px;color:var(--muted);font-size:13px;}
+      @media (max-width:520px){
+        .head{flex-direction:row;gap:12px;}
+        .icon{width:56px;height:56px;font-size:26px;}
+      }
     </style>
   </head>
   <body>
-    <h1>🚫 Site Blocked</h1>
-    <p>This site has been blocked by your browser extension.</p>
+    <main class="container" role="main" aria-labelledby="title">
+      <div class="head">
+        <div class="icon" aria-hidden="true">🚫</div>
+        <div>
+          <h1 id="title">This site was blocked</h1>
+          <p class="lead">The extension detected that the page you tried to open is potentially malicious.</p>
+        </div>
+      </div>
+
+      <div class="card" role="status" aria-live="polite">
+        <div class="row">
+          <div class="label" id="labelText">malicious</div>
+          <div class="meta" id="confidenceText">Confidence: —</div>
+        </div>
+
+        <div class="url" id="blockedUrl">Loading URL…</div>
+
+        <p class="reason" id="reasonText">
+          Reasons this page may be blocked:
+          <ul id="reasonsList" style="margin:8px 0 0;padding-left:18px;color:var(--muted)"></ul>
+        </p>
+
+        <div class="actions">
+          <button class="btn-back" id="goBack">Go back</button>
+          <a class="button btn-open" id="openAnyway" href="#" target="_blank" rel="noopener">Open anyway</a>
+          <a class="button btn-report" id="reportBtn" href="#" target="_blank" rel="noopener">Report a mistake</a>
+        </div>
+
+        <p class="hint" id="helpText">
+          If you believe this is an error, you can report it. Avoid entering credentials or downloading files from this site until you're sure it's safe.
+        </p>
+      </div>
+    </main>
+
+    <script>
+      (function(){
+        const blockedUrlEl = document.getElementById('blockedUrl');
+        const labelEl = document.getElementById('labelText');
+        const confidenceEl = document.getElementById('confidenceText');
+        const reasonsEl = document.getElementById('reasonsList');
+        const openAnyway = document.getElementById('openAnyway');
+        const reportBtn = document.getElementById('reportBtn');
+        const goBack = document.getElementById('goBack');
+
+        function setDefault() {
+          labelEl.textContent = 'malicious';
+          confidenceEl.textContent = 'Confidence: —';
+          reasonsEl.innerHTML = '<li>Detected as phishing, malware, or known malicious host.</li><li>Unsafe downloads, suspicious redirects, or deceptive content.</li>';
+          blockedUrlEl.textContent = 'Unknown URL';
+          openAnyway.href = '#';
+          reportBtn.href = 'mailto:security@example.com?subject=Blocked%20site%20report';
+        }
+
+        function applyInfo(info){
+          if(!info) return setDefault();
+          const { url, label, confidence, reasons } = info;
+          blockedUrlEl.textContent = url || 'Unknown URL';
+          labelEl.textContent = label || 'malicious';
+          confidenceEl.textContent = (typeof confidence === 'number') ? ('Confidence: ' + (Math.round(confidence*1000)/10) + '%') : 'Confidence: —';
+          reasonsEl.innerHTML = '';
+          const defaultReasons = ['Detected as phishing, malware, or known malicious host.','Unsafe downloads, suspicious redirects, or deceptive content.'];
+          (Array.isArray(reasons) && reasons.length ? reasons : defaultReasons).forEach(r=>{
+            const li = document.createElement('li'); li.textContent = r; reasonsEl.appendChild(li);
+          });
+          openAnyway.href = url || '#';
+          reportBtn.href = 'mailto:security@example.com?subject=Blocked%20site%20report&body=' + encodeURIComponent('Blocked URL: '+(url||'') + '\nLabel: '+(label||'') + '\nConfidence: '+(confidence||''));
+        }
+
+        // 1) try to read info from query params (extension code can append ?url=...&label=...&confidence=...)
+        const params = new URLSearchParams(location.search);
+        if(params.has('url')){
+          const info = {
+            url: params.get('url'),
+            label: params.get('label') || undefined,
+            confidence: params.has('confidence') ? parseFloat(params.get('confidence')) : undefined,
+            reasons: params.getAll('reason')
+          };
+          applyInfo(info);
+          return;
+        }
+
+        // 2) try to get active tab URL (requires "tabs" permission)
+        try {
+          if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+            chrome.tabs.query({active:true,currentWindow:true}, tabs=>{
+              if(tabs && tabs[0] && tabs[0].url){
+                applyInfo({url: tabs[0].url});
+              } else {
+                // 3) try to retrieve any stored last blocked URL from chrome.storage
+                tryStorageFallback();
+              }
+            });
+            return;
+          }
+        } catch(e){
+          // ignore
+        }
+
+        function tryStorageFallback(){
+          try {
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+              chrome.storage.local.get(null, items=>{
+                // try find a key that looks like a stored tab url (tab_*)
+                for(const k in items){
+                  if(k.startsWith('last_blocked_url')){
+                    applyInfo({url: items[k]});
+                    return;
+                  }
+                  if(k.startsWith('tab_') && typeof items[k]==='string'){
+                    applyInfo({url: items[k]});
+                    return;
+                  }
+                }
+                setDefault();
+              });
+              return;
+            }
+          } catch(e){}
+          setDefault();
+        }
+
+        goBack.addEventListener('click', ()=>{ try{ history.back(); }catch(e){ window.close(); }});
+        // protect against opening 'about:' or other non-http links
+        openAnyway.addEventListener('click', (ev)=>{
+          const href = openAnyway.href;
+          if(!href || href === '#' || !/^https?:\/\//i.test(href)) {
+            ev.preventDefault();
+            alert('Cannot open this URL directly from the blocked page.');
+          }
+        });
+
+        // start with reasonable defaults while async lookups run
+        setDefault();
+      })();
+    </script>
   </body>
 </html>

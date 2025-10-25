@@ -29,13 +29,40 @@ RANDOM_STATE = 42
 TEST_SIZE = 0.15
 # ----------------------------
 
-if not CSV_FILE.exists():
-    print(f"{CSV_FILE} not found. Create a CSV with header: url,label")
-    sys.exit(1)
+def validate_csv(filepath):
+    try:
+        # Read with error_bad_lines=False to skip problematic rows
+        df = pd.read_csv(filepath, on_bad_lines='skip')
+        
+        # Check required columns
+        if not {'url', 'label'}.issubset(df.columns):
+            print("Error: CSV must contain 'url' and 'label' columns")
+            sys.exit(1)
+            
+        # Check for any non-numeric values in label column
+        if not pd.to_numeric(df['label'], errors='coerce').notnull().all():
+            print("Error: 'label' column contains non-numeric values")
+            sys.exit(1)
+            
+        return df
+        
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+        print("\nPlease ensure:")
+        print("1. The CSV file contains exactly two columns: url,label")
+        print("2. Each row has exactly one comma (no commas in URLs)")
+        print("3. The label column contains only 0s and 1s")
+        print("4. There are no empty rows or malformed data")
+        sys.exit(1)
 
-df = pd.read_csv(CSV_FILE)
+print(f"Loading data from {CSV_FILE}...")
+df = validate_csv(CSV_FILE)
 df = df.dropna(subset=['url', 'label'])
 df['label'] = df['label'].astype(int)
+
+print("Class distribution:")
+print("0 (Benign):", (df['label'] == 0).sum())
+print("1 (Malicious):", (df['label'] == 1).sum())
 
 # Wrappers to be used in FeatureUnion
 num_feat = FunctionTransformer(func=numeric_features, validate=False)
@@ -70,12 +97,37 @@ else:
 
 pipeline = Pipeline([
     ('features', union),
-    ('clf', LogisticRegression(max_iter=2000, solver='saga', class_weight='balanced', random_state=RANDOM_STATE))
+    ('clf', LogisticRegression(
+        max_iter=2000,
+        solver='saga',
+        class_weight='balanced',  # Important for imbalanced malicious/benign data
+        random_state=RANDOM_STATE,
+        verbose=1
+    ))
 ])
 
-param_grid = {'clf__C': [0.05, 0.2, 1.0]}
+# Expand parameter grid for better tuning
+param_grid = {
+    'clf__C': [0.01, 0.05, 0.1, 0.2, 1.0],
+    'clf__penalty': ['l1', 'l2']
+}
+
+# Update GridSearchCV to use multiple metrics
+grid = GridSearchCV(
+    pipeline, 
+    param_grid, 
+    cv=3, 
+    scoring={
+        'f1': 'f1',
+        'precision': 'precision',
+        'recall': 'recall',
+        'accuracy': 'accuracy'
+    },
+    refit='f1',  # Still use f1 as primary metric
+    n_jobs=-1, 
+    verbose=1
+)
 print("Starting GridSearchCV ...")
-grid = GridSearchCV(pipeline, param_grid, cv=3, scoring='f1', n_jobs=-1, verbose=1)
 grid.fit(X_train, y_train)
 
 best = grid.best_estimator_
@@ -124,3 +176,16 @@ print("Top weighted features (name, coef):")
 for i in abs_idx:
     name = feature_names[i] if i < len(feature_names) else f"f{i}"
     print(f"{i:4d} {name:20s} {coef[i]:+.4f}")
+
+print("\nDetailed Performance Analysis:")
+print(f"Benign URLs (0) correctly identified: {cm[0][0]}")
+print(f"Malicious URLs (1) correctly identified: {cm[1][1]}")
+print(f"False positives (benign marked as malicious): {cm[0][1]}")
+print(f"False negatives (malicious marked as benign): {cm[1][0]}")
+
+# Calculate and print additional metrics
+precision_malicious = cm[1][1] / (cm[1][1] + cm[0][1])
+recall_malicious = cm[1][1] / (cm[1][1] + cm[1][0])
+print(f"\nMalicious URL Detection:")
+print(f"Precision: {precision_malicious:.4f}")
+print(f"Recall: {recall_malicious:.4f}")
